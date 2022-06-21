@@ -9,6 +9,10 @@ ln -sf check-wp_options.sh check-default_comment_status.sh
 
 close comments on posts and default_comment_status
 
+Example to disable comments on all sites:
+
+./check-default_comment_status.sh | grep ' open$' | awk '{ print $1 }' | \
+xargs -i sh -cxe 'cd {} ; /home/dpavlin/wp-helpers/disable-comments.sh'
 
 # activate plugins
 
