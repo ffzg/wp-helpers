@@ -1,4 +1,11 @@
-#i activate plugins
+# check-wp_options.sh
+
+generic script to check wp-options on all sites
+
+ln -sf check-wp_options.sh check-default_comment_status.sh
+./check-default_comment_status.sh
+
+# activate plugins
 
 grep fail2ban /dev/shm/wp-plugin-list | grep inactive | awk '{ print "cd "$1" && wp --allow-root plugin activate "$2 }' | sh -x
 
