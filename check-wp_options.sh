@@ -1,6 +1,9 @@
 #!/bin/sh
 
 name=$( basename $0 | sed -e 's/^check-//' -e 's/\.sh$//' )
+if [ ! -z "$1" ] ; then
+	name=$1
+fi
 
 echo "# $name" > /dev/stderr
 
