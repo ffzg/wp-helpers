@@ -14,6 +14,12 @@ Example to disable comments on all sites:
 ./check-default_comment_status.sh | grep ' open$' | awk '{ print $1 }' | \
 xargs -i sh -cxe 'cd {} ; /home/dpavlin/wp-helpers/disable-comments.sh'
 
+# check-users_can_register.sh
+
+check if new users can register, disable with
+
+wp option set users_can_register 0
+
 # activate plugins
 
 grep fail2ban /dev/shm/wp-plugin-list | grep inactive | awk '{ print "cd "$1" && wp --allow-root plugin activate "$2 }' | sh -x
