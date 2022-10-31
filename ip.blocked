@@ -1,0 +1,1 @@
+ls -ald /srv/www/*/wp-content/plugins/wordfence | cut -d/ -f2-4 | xargs -i /srv/wp-helpers/wf-blocked.sh /{} | tee /tmp/ip.blocked
