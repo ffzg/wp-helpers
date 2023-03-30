@@ -1,0 +1,8 @@
+#!/bin/sh
+
+# put in /etc/cron.daily
+
+ls -d /srv/www/*/wp-content/updraft* | while read dir
+do
+	find $dir -ctime +7 -name 'backup*.zip' -exec rm -v {} \;
+done
