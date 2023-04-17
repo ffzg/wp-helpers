@@ -14,6 +14,13 @@ Example to disable comments on all sites:
 ./check-default_comment_status.sh | grep ' open$' | awk '{ print $1 }' | \
 xargs -i sh -cxe 'cd {} ; /home/dpavlin/wp-helpers/disable-comments.sh'
 
+## comments_for_old_posts
+
+This option is useful to disable comments on media ports, since there is
+no easy vay to disable them in any other way
+
+./wp-all-close_comments_for_old_posts.sh
+
 # check-users_can_register.sh
 
 check if new users can register, disable with
