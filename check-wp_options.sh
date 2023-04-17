@@ -10,5 +10,5 @@ echo "# $name" > /dev/stderr
 find /srv/www/ -name wp-config.php | while read config ; do
 	dir=$( dirname $config )
 	cd $dir
-	echo "$dir " $( wp option get $name )
+	echo $dir $( wp option get $name )
 done
