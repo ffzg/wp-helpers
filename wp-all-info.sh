@@ -10,10 +10,7 @@ sudo find /srv/www/ -name wp-config.php | while read config ; do
 	to=$( echo $dir | sed 's,/srv/www,/home/dpavlin/wp-info,' )
 	cd $dir
 	echo "# $dir"
-	if sudo -u $user wp user list | grep wordpress ; then
-		echo "XXX $name"
-		test -d $to || mkdir -v -p $to
-		sudo -u $user wp user list   | tee $to/user
-		sudo -u $user wp plugin list | tee $to/plugin
-	fi
+	test -d $to || mkdir -v -p $to
+	sudo -u $user wp user list   | tee $to/user
+	sudo -u $user wp plugin list | tee $to/plugin
 done
