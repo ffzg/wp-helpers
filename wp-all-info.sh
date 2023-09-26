@@ -1,7 +1,6 @@
 #!/bin/sh
 
-echo "# $name" > /dev/stderr
-
+# sudo ln -s /home/dpavlin/wp-helpers/wp-all-info.sh /etc/cron.daily/wp-all-info
 
 sudo find /srv/www/ -name wp-config.php | while read config ; do
 	dir=$( dirname $config )
@@ -14,3 +13,7 @@ sudo find /srv/www/ -name wp-config.php | while read config ; do
 	sudo -u $user wp user list   | tee $to/user
 	sudo -u $user wp plugin list | tee $to/plugin
 done
+
+cd /home/dpavlin/wp-info
+git add *
+git commit -m $( date +%Y-%m-%d ) -a
