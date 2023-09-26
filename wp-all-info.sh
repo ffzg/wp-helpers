@@ -10,8 +10,8 @@ sudo find /srv/www/ -name wp-config.php | while read config ; do
 	cd $dir
 	echo "# $dir"
 	test -d $to || mkdir -v -p $to
-	sudo -u $user wp user list   | tee $to/user
-	sudo -u $user wp plugin list | tee $to/plugin
+	sudo -u $user wp --allow-root user list   | tee $to/user
+	sudo -u $user wp --allow-root plugin list | tee $to/plugin
 done
 
 cd /home/dpavlin/wp-info
