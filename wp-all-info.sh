@@ -16,7 +16,7 @@ done
 
 cd /home/dpavlin/wp-info
 
-/home/dpavlin/wp-helpers/mysql-size.sh
+/home/dpavlin/wp-helpers/mysql-schema.sh
 
 git add *
 git commit -m $( date +%Y-%m-%d ) -a
