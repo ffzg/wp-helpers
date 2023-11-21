@@ -15,5 +15,8 @@ sudo find /srv/www/ -name wp-config.php | while read config ; do
 done
 
 cd /home/dpavlin/wp-info
+
+/home/dpavlin/wp-helpers/mysql-size.sh
+
 git add *
 git commit -m $( date +%Y-%m-%d ) -a
