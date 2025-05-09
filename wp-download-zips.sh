@@ -4,6 +4,9 @@
 download_dir="/tmp/wp.download/"
 wp_dir="/tmp/wp/"
 
+# remove old directory
+test -d "$wp_dir" && rm -Rf "$wp_dir"
+
 # Create directories if they don't exist
 mkdir -p "$download_dir" "$wp_dir"
 
@@ -36,14 +39,17 @@ echo "Processing plugins..."
 wp plugin list --fields=name,version --format=csv | tail -n +2 | while IFS=, read -r slug version; do
     plugin_zip="${slug}.${version}.zip"
     plugin_url="downloads.wordpress.org/plugin/${slug}.${version}.zip"
+    plugin_url_no_ver="downloads.wordpress.org/plugin/${slug}.zip"
     echo "Checking ${slug} version ${version}..."
 
-    if ! wget -q -m "https://$plugin_url" -P "$download_dir" ; then
-	local_zip=/home/dpavlin/${slug}.${version}.zip
-	if [ -e $local_zip ] ; then
-		unzip -o -q $local_zip    -d /tmp/wp/wordpress/wp-content/plugins/
-	else
-		echo "ERROR: ${slug}.${version}.zip MISSING"
+    if ! wget -q -m "https://$plugin_url" -P "$download_dir" ; then 
+	if ! wget -q -m "https://$plugin_url_no_ver" -P "$download_dir" ; then
+		local_zip=/home/dpavlin/${slug}.${version}.zip
+		if [ -e $local_zip ] ; then
+			unzip -o -q $local_zip    -d /tmp/wp/wordpress/wp-content/plugins/
+		else
+			echo "ERROR: ${slug}.${version}.zip MISSING"
+		fi
 	fi
     else
   	unzip -o -q $download_dir/$plugin_url -d /tmp/wp/wordpress/wp-content/plugins/
