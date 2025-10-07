@@ -110,11 +110,23 @@ def extract_nginx_params(config_content):
     if match:
         params['error_log'] = match.group('error_log').strip()
 
-    # Extract uwsgi_pass directive
-    match = re.search(r"location\s+~\s+\.php\$\s*{\s*include\s+uwsgi_params;\s*uwsgi_modifier1\s+(?P<modifier>\d+);\s*uwsgi_pass\s+(?P<pass_target>[^;]+);", config_content, re.DOTALL)
+    # Extract uwsgi_pass directive more robustly
+    match = re.search(
+        r"location\s+~\s+\.php\$\s*{\s*include\s+uwsgi_params;\s*uwsgi_modifier1\s+(?P<modifier>\d+);\s*uwsgi_pass\s+(?P<pass_target>[^;]+);",
+        config_content, re.DOTALL
+    )
     if match:
         params['uwsgi_modifier1'] = match.group('modifier')
         params['uwsgi_pass_target'] = match.group('pass_target').strip()
+    else:
+        # Fallback if the above regex fails, try to find uwsgi_pass in a more general way
+        match = re.search(r"uwsgi_pass\s+(?P<pass_target>[^;]+);", config_content)
+        if match:
+            params['uwsgi_pass_target'] = match.group('pass_target').strip()
+        match = re.search(r"uwsgi_modifier1\s+(?P<modifier>\d+);", config_content)
+        if match:
+            params['uwsgi_modifier1'] = match.group('modifier')
+
 
     return params
 
@@ -128,16 +140,16 @@ def generate_hardened_nginx_config(nginx_params, ssl_conf_content, wp_restrictio
 
     # Clean up included contents to avoid duplication and integrate
     # Remove location blocks from wp_main_conf_content that will be explicitly defined
-    wp_main_conf_content_cleaned = re.sub(r"location\s+/\s*{\s*.*?try_files\s+\\$uri\s+\\$uri/\s+/index.php\?\\$args;.*?\}", "", wp_main_conf_content, flags=re.DOTALL)
-    wp_main_conf_content_cleaned = re.sub(r"location\s+~*\s+\.\(ogg|ogv|svg|svgz|eot|otf|woff|mp4|ttf|rss|atom|jpg|jpeg|gif|png|ico|zip|tgz|gz|rar|bz2|doc|xls|exe|ppt|tar|mid|midi|wav|bmp|rtf\)\\\s*{\s*.*?expires\s+max;.*?\}", "", wp_main_conf_content_cleaned, flags=re.DOTALL)
+    wp_main_conf_content_cleaned = re.sub(r"location\s+/\s*{\s*.*?try_files\s+\\$uri\s+\\$uri/\s+/index.php\\?\\$args;.*?}", "", wp_main_conf_content, flags=re.DOTALL)
+    wp_main_conf_content_cleaned = re.sub(r"location\s+~*\s+\.\(ogg|ogv|svg|svgz|eot|otf|woff|mp4|ttf|rss|atom|jpg|jpeg|gif|png|ico|svg|webp\)\\\s*{\s*.*?expires\s+max;.*?}", "", wp_main_conf_content_cleaned, flags=re.DOTALL)
     wp_main_conf_content_cleaned = re.sub(r"rewrite\s+/wp-admin\$\s+\\$scheme://\\$host\\$uri/\s+permanent;", "", wp_main_conf_content_cleaned)
 
     # Remove location blocks from wp_restrictions_conf_content that will be explicitly defined
-    wp_restrictions_conf_content_cleaned = re.sub(r"location\s+=\s+/favicon.ico\s*{\s*.*?\}", "", wp_restrictions_conf_content, flags=re.DOTALL)
-    wp_restrictions_conf_content_cleaned = re.sub(r"location\s+=\s+/robots.txt\s*{\s*.*?\}", "", wp_restrictions_conf_content_cleaned, flags=re.DOTALL)
-    wp_restrictions_conf_content_cleaned = re.sub(r"location\s+~\s+/\\.ht\s*{\s*.*?\}", "", wp_restrictions_conf_content_cleaned, flags=re.DOTALL)
-    wp_restrictions_conf_content_cleaned = re.sub(r"location\s+~*\s+/(?:uploads|files)/.*\\.php\$\\s*{\s*.*?\}", "", wp_restrictions_conf_content_cleaned, flags=re.DOTALL)
-    wp_restrictions_conf_content_cleaned = re.sub(r"location\s+=\s+/xmlrpc.php\s*{\s*.*?\}", "", wp_restrictions_conf_content_cleaned, flags=re.DOTALL)
+    wp_restrictions_conf_content_cleaned = re.sub(r"location\s+=\s+/favicon.ico\s*{\s*.*?}", "", wp_restrictions_conf_content, flags=re.DOTALL)
+    wp_restrictions_conf_content_cleaned = re.sub(r"location\s+=\s+/robots.txt\s*{\s*.*?}", "", wp_restrictions_conf_content_cleaned, flags=re.DOTALL)
+    wp_restrictions_conf_content_cleaned = re.sub(r"location\s+~\s+/\\.ht\s*{\s*.*?}", "", wp_restrictions_conf_content_cleaned, flags=re.DOTALL)
+    wp_restrictions_conf_content_cleaned = re.sub(r"location\s+~*\s+/(?:uploads|files)/.*\\.php\$\\\s*{\s*.*?}", "", wp_restrictions_conf_content_cleaned, flags=re.DOTALL)
+    wp_restrictions_conf_content_cleaned = re.sub(r"location\s+=\s+/xmlrpc.php\s*{\s*.*?}", "", wp_restrictions_conf_content_cleaned, flags=re.DOTALL)
 
 
     config = f"""# Full Hardened Nginx Configuration for {server_name}
@@ -202,7 +214,7 @@ server {{
 
     location = /wp-config.php {{ deny all; }}
     location = /xmlrpc.php {{ deny all; }}
-    location ~* \\.(engine|inc|info|install|make|module|profile|test|po|sh|sql|theme|tpl(\\..+)?|xtmpl)\\$|^(\\..*|Entries.*|Repository|Root|Tag|Template)\\$|\\~\\$ {{
+    location ~* \.(engine|inc|info|install|make|module|profile|test|po|sh|sql|theme|tpl(\..+)?|xtmpl)\\$|^(\..*|Entries.*|Repository|Root|Tag|Template)\\$|\~\$ {{
         deny all;
     }}
     location ~* /(?:uploads|files)/.*\\.php\$ {{
@@ -246,7 +258,7 @@ server {{
     }}
 
     # Standard location block for static assets
-    location ~* \\.(js|css|png|jpg|jpeg|gif|ico|svg|webp)\\$ {{
+    location ~* \\.(js|css|png|jpg|jpeg|gif|ico|svg|webp)\\ $ {{
         expires max;
         log_not_found off;
     }}
