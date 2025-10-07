@@ -11,7 +11,7 @@ def find_menu_definitions(plugin_dir):
         'add_pages_page', 'add_comments_page', 'add_theme_page',
         'add_plugins_page', 'add_users_page', 'add_management_page'
     ]
-    pattern = re.compile(r"(?P<function>add_(?:menu|submenu|options|dashboard|posts|media|pages|comments|theme|plugins|users|management)_page)\s*\((?P<args>.*?)\);", re.DOTALL)
+    pattern = re.compile(r"(?P<function>add_(?:menu|submenu|options|dashboard|posts|media|pages|comments|theme|plugins|users|management)_page)\\s*\((?P<args>.*?)\);", re.DOTALL)
 
     for root, _, files in os.walk(plugin_dir):
         for file in files:
@@ -79,6 +79,44 @@ def analyze_definitions(definitions, nginx_whitelist):
         results.append(definition)
     return results
 
+def read_nginx_config(filepath):
+    try:
+        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+            return f.read()
+    except FileNotFoundError:
+        print(f"Error: Nginx config file not found at '{filepath}'", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error reading Nginx config file '{filepath}': {e}", file=sys.stderr)
+        sys.exit(1)
+
+def extract_nginx_params(config_content):
+    params = {}
+    # Extract server_name
+    match = re.search(r"server_name\\s+(?P<server_name>[^;]+);", config_content)
+    if match:
+        params['server_name'] = match.group('server_name').strip()
+
+    # Extract root
+    match = re.search(r"root\\s+(?P<root>[^;]+);", config_content)
+    if match:
+        params['root'] = match.group('root').strip()
+
+    # Extract log files
+    match = re.search(r"access_log\\s+(?P<access_log>[^;]+);", config_content)
+    if match:
+        params['access_log'] = match.group('access_log').strip()
+    match = re.search(r"error_log\\s+(?P<error_log>[^;]+);", config_content)
+    if match:
+        params['error_log'] = match.group('error_log').strip()
+
+    # Extract uwsgi_pass directive
+    match = re.search(r"location\\s+~\\s+\\.php\\$\s*\\{\\s*include\\s+uwsgi_params;\\s*uwsgi_modifier1\\s+(?P<modifier>\\d+);\\s*uwsgi_pass\\s+(?P<pass_target>[^;]+);", config_content, re.DOTALL)
+    if match:
+        params['uwsgi_modifier1'] = match.group('modifier')
+        params['uwsgi_pass_target'] = match.group('pass_target').strip()
+
+    return params
 
 if __name__ == "__main__":
     base_path = "/srv/www/psyche.ffzg.hr/"
@@ -92,14 +130,27 @@ if __name__ == "__main__":
         if os.path.isdir(prefix + target_path):
             target_path = prefix + target_path
         else:
-            print(f"Error: Directory not found at '{target_path}'")
+            print(f"Error: Directory not found at '{target_path}'", file=sys.stderr)
             sys.exit(1)
 
     plugins_dir = os.path.join(target_path, "wp-content", "plugins")
 
     if not os.path.isdir(plugins_dir):
-        print(f"Error: Plugins directory not found at '{plugins_dir}'")
+        print(f"Error: Plugins directory not found at '{plugins_dir}'", file=sys.stderr)
         sys.exit(1)
+
+    # Read original Nginx config files
+    main_site_conf_path = "/mnt/ws2/etc/nginx/sites-available/psyche.ffzg.hr.conf"
+    ssl_conf_path = "/mnt/ws2/etc/nginx/confs/ssl.conf"
+    wp_restrictions_conf_path = "/mnt/ws2/etc/nginx/confs/wp-restrictions.conf"
+    wp_main_conf_path = "/mnt/ws2/etc/nginx/confs/wp-main.conf"
+
+    main_site_conf_content = read_nginx_config(main_site_conf_path)
+    ssl_conf_content = read_nginx_config(ssl_conf_path)
+    wp_restrictions_conf_content = read_nginx_config(wp_restrictions_conf_path)
+    wp_main_conf_content = read_nginx_config(wp_main_conf_path)
+
+    nginx_params = extract_nginx_params(main_site_conf_content)
 
     # Whitelist from the hardened nginx config
     nginx_whitelist = [
@@ -122,9 +173,11 @@ if __name__ == "__main__":
     for plugin_name in os.listdir(plugins_dir):
         plugin_path = os.path.join(plugins_dir, plugin_name)
         if os.path.isdir(plugin_path):
-            print(f"Analyzing plugin: {plugin_name}...")
+            # print(f"Analyzing plugin: {plugin_name}...", file=sys.stderr) # Commented out for cleaner STDOUT
             definitions = find_menu_definitions(plugin_path)
             results = analyze_definitions(definitions, nginx_whitelist)
             all_plugins_results[plugin_name] = results
 
-    print(json.dumps(all_plugins_results, indent=4))
+    # Now, generate the full hardened configuration
+    # This part will be added in the next step
+    print(json.dumps(all_plugins_results, indent=4)) # Keep this for now, will replace later
