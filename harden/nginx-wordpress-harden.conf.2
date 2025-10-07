@@ -41,6 +41,8 @@ server {
     location = /wp-admin/admin-post.php { include uwsgi_params; uwsgi_pass unix:/tmp/uwsgi-emperor.sock; }
     # Added for duplicate-post plugin
     location = /wp-admin/options-general.php { include uwsgi_params; uwsgi_pass unix:/tmp/uwsgi-emperor.sock; }
+    # Added for fluentform (Action Scheduler) plugin
+    location = /wp-admin/tools.php { include uwsgi_params; uwsgi_pass unix:/tmp/uwsgi-emperor.sock; }
     # Add other wp-admin files here using the same format if needed by specific plugins.
     # Example: location = /wp-admin/some-plugin-file.php { ... }
 
