@@ -1,0 +1,63 @@
+server {
+    listen 80;
+    server_name example.com;
+    root /var/www/wordpress;
+
+    index index.php;
+
+    # The main router for WordPress pretty URLs
+    location / {
+        try_files $uri $uri/ /index.php?$args;
+    }
+
+    # ====================================================================
+    # SECURITY: Deny access to sensitive files and directories
+    # These rules are processed first to block known bad requests.
+    # ====================================================================
+    location = /wp-config.php { deny all; }
+    location ~ /\.ht { deny all; }
+    location ~* /wp-content/uploads/.*\.php$ { deny all; }
+
+
+    # ====================================================================
+    # PHP ALLOWLIST: Explicitly allow only necessary WordPress PHP files
+    # Using exact matches (=) is faster and avoids regex order conflicts.
+    # ====================================================================
+
+    # --- Root Files ---
+    location = /index.php { include uwsgi_params; uwsgi_pass unix:/tmp/uwsgi-emperor.sock; }
+    location = /wp-login.php { include uwsgi_params; uwsgi_pass unix:/tmp/uwsgi-emperor.sock; }
+    location = /wp-cron.php { include uwsgi_params; uwsgi_pass unix:/tmp/uwsgi-emperor.sock; }
+    location = /wp-signup.php { include uwsgi_params; uwsgi_pass unix:/tmp/uwsgi-emperor.sock; }
+    location = /wp-activate.php { include uwsgi_params; uwsgi_pass unix:/tmp/uwsgi-emperor.sock; }
+    
+    # Note: xmlrpc.php is a common attack vector. Allow only if you use services
+    # that depend on it (like the Jetpack plugin or mobile apps).
+    # location = /xmlrpc.php { include uwsgi_params; uwsgi_pass unix:/tmp/uwsgi-emperor.sock; }
+
+
+    # --- wp-admin Files ---
+    location = /wp-admin/admin-ajax.php { include uwsgi_params; uwsgi_pass unix:/tmp/uwsgi-emperor.sock; }
+    location = /wp-admin/admin-post.php { include uwsgi_params; uwsgi_pass unix:/tmp/uwsgi-emperor.sock; }
+    # Add other wp-admin files here using the same format if needed by specific plugins.
+    # Example: location = /wp-admin/some-plugin-file.php { ... }
+
+
+    # --- wp-includes Files (Rarely Needed) ---
+    location = /wp-includes/js/tinymce/wp-tinymce.php { include uwsgi_params; uwsgi_pass unix:/tmp/uwsgi-emperor.sock; }
+
+
+    # ====================================================================
+    # FINAL CATCH-ALL: Deny any other PHP file request.
+    # This is the most critical part of the allowlist strategy.
+    # ====================================================================
+    location ~ \.php$ {
+        deny all;
+    }
+
+    # Standard location block for static assets
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|webp)$ {
+        expires max;
+        log_not_found off;
+    }
+}
