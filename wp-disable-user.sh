@@ -8,4 +8,4 @@ fi
 
 as_user=$( ls -ald $dir | awk '{ print $3 }' )
 
-sudo -u $as_user wp --require=/home/dpavlin/wp-helpers/wp-cli-audit/disable-user.php disable-user $*
+sudo -u $as_user wp eval-file /home/dpavlin/wp-helpers/wp-cli-audit/disable-user.php $*
