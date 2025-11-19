@@ -6,8 +6,13 @@
  */
 
 // --- Configuration ---
-$start_date = '2025-10-20';
-$end_date   = '2025-10-25';
+if ( isset( $args[0] ) && isset( $args[1] ) ) {
+    $start_date = $args[0];
+    $end_date   = $args[1];
+} else {
+    // Fallback or error
+    WP_CLI::error( "Please provide start and end dates: wp eval-file script.php YYYY-MM-DD YYYY-MM-DD" );
+}
 
 // --- Script Starts Here ---
 
