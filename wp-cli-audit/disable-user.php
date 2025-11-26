@@ -54,11 +54,29 @@ WP_CLI::runcommand( "user session destroy {$user_login} --all" );
 WP_CLI::log( "Regenerating WordPress salts in wp-config.php..." );
 WP_CLI::runcommand( 'config shuffle-salts' );
 
+// 6. Multisite specific actions
+if ( is_multisite() ) {
+	WP_CLI::log( "Multisite detected. Performing additional checks..." );
+
+	// Revoke Super Admin privileges if the user has them
+	if ( is_super_admin( $user->ID ) ) {
+		WP_CLI::log( "User '{$user_login}' is a Super Admin. Revoking privileges..." );
+		if ( revoke_super_admin( $user->ID ) ) {
+			WP_CLI::log( "Super Admin privileges revoked." );
+		} else {
+			WP_CLI::warning( "Failed to revoke Super Admin privileges." );
+		}
+	}
+
+	// Mark user as spam (effectively disables them across the network)
+	WP_CLI::log( "Marking user '{$user_login}' as spam to prevent login across the network..." );
+	wp_update_user( array( 'ID' => $user->ID, 'spam' => 1 ) );
+	WP_CLI::log( "User '{$user_login}' marked as spam." );
+}
+
 // 6. Suggestions for further actions
 WP_CLI::success( "User '{$user_login}' has been disabled and sessions terminated." );
 WP_CLI::log( "\nFor complete security, consider the following additional steps:" );
-WP_CLI::log( "1. Lock the user account (if command is available):" );
-WP_CLI::log( "   wp user lock {$user_login}" );
-WP_CLI::log( "2. Reassign their content to another user (e.g., 'admin') and delete the account:" );
+WP_CLI::log( "1. Reassign their content to another user (e.g., 'admin') and delete the account:" );
 WP_CLI::log( "   wp user delete {$user_login} --reassign=1" );
 WP_CLI::log( "   (Replace '1' with the user ID of the user you want to reassign content to.)" );
