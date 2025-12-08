@@ -1,0 +1,225 @@
+<title>WordPress DevOps for the Graybeard Admin</title>
+
+<p>
+  Let's assume that you inherited hundreds of WordPress sites installed over 4 hosts during last
+  20 years and that from time to time these WordPress installations gets infected
+  by malicious actors who somehow acquired the password of an administrator user on
+  the installation and are using these newly acquired privileges to install additional
+  plugins, create new users and insert spam in
+  Google (using User-Agent to emit spam content to Google and normal content
+  to usual pages).
+
+</p>
+<p>
+
+  You are also not an administrator on those sites, so your tool of choice is
+  <a href="https://wp-cli.org/">WP-CLI</a> and command-line together with some
+  code snippets which extend it's functionality described here.
+
+</p>
+<p>
+
+
+<h3>Logging user logins</h3>
+
+<p>
+
+The first logical question is: how can I know which user logged in into
+WordPress and infected it? Unfortunately, WordPress doesn't emit any
+log files.
+
+</p>
+
+<h4>wp-fail2ban</h4>
+
+<p>
+Several year ago, I found another plugin which sends logs to syslog 
+
+<a href="https://wordpress.org/plugins/wp-fail2ban/">WP-Fail2Ban</a>.
+
+<br>
+
+However, this plugin tries to insert the site name into the syslog tag field which is limited
+in length, so generated logs are less useful if the site name gets truncated.
+<br>
+Newer version are also overly complex, since they include full WordPress interface,
+with additional tables in each word press installation which we don't want or need.
+<br>
+So I decided to keep using an older, simpler version of WP-Fail2Ban before it had any interface,
+which is simple enough to audit and modified it to produce
+more useful syslog messages and implement everything in a
+<a href="https://github.com/ffzg/mu-plugins/blob/master/wp-fail2ban-ffzg.php">single PHP file wp-fail2ban-ffzg.php</a>.
+<br>
+Logs are then sent to central syslog server, which runs fail2ban and inserts firewall rules, but
+here we are mostly concerned about log generation for user logins.
+</p>
+
+<h4>jeepers-peepers</h4>
+
+<p>
+Honorable mention is 
+<a href="https://wordpress.org/plugins/jeepers-peepers/">
+jeepers-peepers
+</a>
+very interesting plugin
+with very strange php coding style, which does generate logs on disk,
+but it uses current user to generate files, so logs from web server
+will be by nobody user, so wp-cli commands from other users won't
+be able to update logs.
+<br>
+Even worse, if you run wp-cli under any other user than nobody first,
+you will create log files which are not updatable from web server.
+<br>
+I really wanted central syslog logging, so this was not suitable
+solution. It also didn't support multi-site WordPress installations
+which I also had.
+</p>
+
+
+
+<h3>mu-plugins</h3>
+
+<p>
+  
+  This seems good so far, but installing a plugin to hundreds of sites is somewhat involved
+and I want to minimize modifications which I have to do on each site.
+<br>
+WordPress 
+<a href="https://developer.wordpress.org/advanced-administration/plugins/mu-plugins/">Must Use plugins</a>
+  which are automatically loaded and activated is perfect for such task.
+<br>
+Even better, we can have one <tt>mu-plugins</tt>
+  directory which is then symlinked to all sites making installation nice and simple.
+
+</p>
+
+<h3>Mitigation on infected sites</h3>
+
+<p>
+
+  When a site gets infected, WP-CLI can help us find modified files using
+
+<pre>
+wp core verify-checksums
+wp plugin verify-checksums --all
+</pre>
+
+Plugin verification works for most plugins, but some paid ones (like WPML)
+don't have checksums upstream which is a shame.
+
+</p>
+
+<h3>Disabling compromised user</h3>
+
+<p>
+
+  When a compromised user is identified, it's good to remove administrator
+  privileges from it (which might be somewhat involved if this is a WordPress
+  Multisite, so <tt>wp super-admin list</tt> might be useful).
+</p>
+
+<p>
+<tt>
+  wp eval-file
+  <a href="https://github.com/ffzg/wp-helpers/blob/master/wp-cli-audit/disable-user.php">disable-user.php</a>
+  login
+</tt>
+
+  will display current capabilities, reset password, remove all capabilities from the user,
+list and destroy user sessions, regenerate WordPress salts,
+
+  iterate over all sites if wordpress is multisite and remove administrator privileges.
+
+<br>
+Salts regeneration with
+  <tt>wp config shuffle-salts</tt> is useful because all users are forced
+  to login again, thus invalidating saved logins, but for that script has to be run under correct user,
+owner of
+  <tt>wp-config.php</tt>, so there is wrapper script
+  <a href="https://github.com/ffzg/wp-helpers/blob/master/wp-disable-user.sh">wp-disable-user.sh</a>
+  which ensures that.
+
+</p>
+<p>
+
+<h3>Auditing Logins with Wordfence</h3>
+
+If you have
+<a href="https://www.wordfence.com/products/wordfence-free/">Wordfence</a>
+installed, it tracks user logins in user metadata, which can be invaluable for forensics even if
+you don't have <tt>wp-fail2ban</tt> logs.
+<br>
+You can use <tt>wp eval</tt> to extract this information across your sites (based on <a
+  href="https://github.com/ffzg/wp-helpers/blob/master/wp-wordfence-login.sh">wp-wordfence-login.sh</a>):
+
+
+This snippet lists users who have logged in, showing their username, last login timestamp, and IP address, sorted by
+last_login descending.
+
+</p>
+
+<h3>Scanning WordPress using Wordfence CLI</h3>
+
+</p>
+<p>
+
+  We have daily backups of all WordPress sites, so an alternative is to check at the backup
+  server which files are changed. However, we can also use
+  <a href="https://www.wordfence.com/products/wordfence-cli/">wordfence-cli</a>
+  to check if there are exploits using
+<pre>
+wordfence malware-scan --match-engine=vectorscan -q -a --output-format csv --output-path malware.csv /path/to/wordpress
+</pre>
+This works well on the backup server (vectorscan engine which is much faster requires SSE capable CPU)
+but, <tt>vuln-scan</tt> which checks known vulnerabilities in installed plugins works only on
+WordPress installation and not on plain backup files.
+
+</p>
+<p>
+
+  You should really examine all warnings from <tt>malware-scan</tt>, but gzip fonts will be reported as
+  possible compromise:
+
+  <tt>
+    zamd/cluster/pauk.ffzg.hr/2/www/ffzg.hr/fonet2/eufonija/public_html/wp-content/plugins/easy-digital-downloads/includes/libraries/fpdf/font/c67085188799208adeb5b784b9483ad0_droidserif-italic.z,7741,IOC:ZIP/CompressedZlib.7741,Raw
+    compressed zlib file - occasionally used
+    to store fonts or exports but may be an IOC (Indicator of Compromise),
+  </tt>
+  which can be safely ignored.
+
+</p>
+
+<h3>Finding content created in some time range</h3>
+
+<p>
+If you want to examine content on site to see if there where any spam content added, you
+can use:
+<tt>
+wp eval-file <a href="https://github.com/ffzg/wp-helpers/blob/master/wp-cli-audit/find-modified-content.php">
+find-modified-content.php
+</a>
+2025-12-05 1025-12-08
+</tt>
+
+
+</p>
+
+<h3>syslog geolocation of logins</h3>
+<p>
+
+Best way which I found to detect infected sites is to geolocate all logins to wordpress,
+and send mails for logins which are outside Croatia. Common pattern is to see several
+logins from different IPs and countries, which is then trigger for closer investigation.
+<br>
+For that there is simple script
+<a href="https://github.com/ffzg/syslog-scripts/blob/master/tail-wordpress-accepted.sh">
+tail-wordpress-accepted.sh
+</a> which in turn uses
+<a href="https://github.com/ffzg/syslog-scripts/blob/master/geolocate_ips.sh">
+geolocate_ips.sh
+</a>
+to geolocate IPs using <tt>geoiplookup</tt> and web API which usually has more
+precise country, town and ISP data.
+
+</p>
+<p>
